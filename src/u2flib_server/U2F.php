@@ -95,6 +95,9 @@ class U2F
     /** @var null|string */
     private $attestDir;
 
+    /** @var  */
+    private $facets;
+
     /** @internal */
     private $FIXCERTS = array(
         '349bca1031f8c82c4ceca38b9cebf1a69df9fb3b94eed99eb3fb9aa3822d26e8',
@@ -108,15 +111,24 @@ class U2F
     /**
      * @param string $appId Application id for the running application
      * @param string|null $attestDir Directory where trusted attestation roots may be found
+	 * @param array|null $facets Facets for the running application
      * @throws Error If OpenSSL older than 1.0.0 is used
      */
-    public function __construct($appId, $attestDir = null)
+    public function __construct($appId, $attestDir = null, $facets = null)
     {
         if(OPENSSL_VERSION_NUMBER < 0x10000000) {
             throw new Error('OpenSSL has to be at least version 1.0.0, this is ' . OPENSSL_VERSION_TEXT, ERR_OLD_OPENSSL);
         }
         $this->appId = $appId;
         $this->attestDir = $attestDir;
+
+        if (!empty($facets)) {
+        	$this->facets = $facets;
+		} elseif (preg_match('^https?://', $this->appId)) {
+        	$this->facets = [$this->appId];
+		} else {
+        	throw new Error('At least one facet is required unless appId is an origin', 0);
+		}
     }
 
     /**
@@ -179,7 +191,7 @@ class U2F
             throw new Error('ClientData type is invalid', ERR_BAD_TYPE);
         }
 
-        if(isset($cli->origin) && $cli->origin !== $request->appId) {
+        if(isset($cli->origin) && !in_array($cli->origin, $this->facets)) {
             throw new Error('App ID does not match the origin', ERR_NO_MATCHING_ORIGIN);
         }
 
@@ -312,7 +324,7 @@ class U2F
         if($req === null) {
             throw new Error('No matching request found', ERR_NO_MATCHING_REQUEST );
         }
-        if(isset($decodedClient->origin) && $decodedClient->origin !== $req->appId) {
+        if(isset($decodedClient->origin) && !in_array($decodedClient->origin, $this->facets)) {
             throw new Error('App ID does not match the origin', ERR_NO_MATCHING_ORIGIN);
         }
         foreach ($registrations as $reg) {
