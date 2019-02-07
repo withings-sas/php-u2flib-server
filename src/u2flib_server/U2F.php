@@ -124,7 +124,7 @@ class U2F
 
 		if (!empty($facets)) {
 			$this->facets = $facets;
-		} elseif (preg_match('^https?://', $this->appId)) {
+		} elseif (preg_match('/^https?:\/\//', $this->appId)) {
 			$this->facets = [$this->appId];
 		} else {
 			throw new Error('At least one facet is required unless appId is an origin', 0);
